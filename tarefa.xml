@@ -1,0 +1,67 @@
+<prompt>
+    <tarefa>
+        Mekl script JavaScript para Tampermonkey que faz o scrape do html Atrás de uma determinada informação, coloca ela em  uma unica string e baixa essa string como um arquivo de texto .txt?
+    </tarefa>
+    <codigo>
+        // ==UserScript==
+// @name         Botão Console.log - CheckReplay
+// @namespace    http://tampermonkey.net/
+// @version      1.0
+// @description  Botão que executa console.log apenas no CheckReplay
+// @author       Você
+// @match        https://web.checkreplay.com/*
+// @grant        none
+// ==/UserScript==
+
+(function() {
+    'use strict';
+    
+    // Função que será executada no clique
+    function minhaFuncao() {
+        console.log('Botão clicado no CheckReplay!');
+        console.log('Timestamp:', new Date().toLocaleString());
+        console.log('URL atual:', window.location.href);
+        console.log('Domínio:', window.location.hostname);
+    }
+    
+    // Criar o botão
+    function criarBotao() {
+        const botao = document.createElement('button');
+        botao.textContent = 'Clique aqui';
+        botao.id = 'botao-checkreplay';
+        
+        // Estilizar o botão
+        botao.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        `;
+        
+        // Adicionar evento de clique
+        botao.addEventListener('click', minhaFuncao);
+        
+        // Adicionar à página
+        document.body.appendChild(botao);
+        
+        console.log('Botão adicionado ao CheckReplay!');
+    }
+    
+    // Aguardar carregamento da página
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', criarBotao);
+    } else {
+        criarBotao();
+    }
+})();
+    </codigo>
+</prompt>
