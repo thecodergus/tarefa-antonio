@@ -62,7 +62,396 @@
         click: '#28a745',
         normal: '#007bff'
     };
+    /**
+     * Extrai informações das cartas de um container retornado por extrairContainersCartas
+     * @param {Object} item - Item contendo html e dados do container
+     * @returns {Array} Tupla com as duas cartas no formato ["valor#naipe", "valor#naipe"]
+     */
+    function extrairCartasDoContainer(item) {
+        // Mapeamento de cores hexadecimais para naipes
+        const MAPA_CORES_NAIPES = {
+            '#434343': 'Espadas',   // Cinza
+            '#D4131A': 'Copas',     // Vermelho
+            '#2371C8': 'Ouros',     // Azul
+            '#0F712A': 'Paus'       // Verde
+        };
+        
+        try {
+            const resultado = [];
+            
+            // Usar split para dividir o HTML em partes onde aparecem os spans
+            const partes = item.html.split('<span');
+            
+            // Ignorar a primeira parte (antes do primeiro span)
+            for (let i = 1; i < partes.length; i++) {
+                const parte = partes[i];
+                
+                // Encontrar a cor - procurar por bg-[ seguido da cor
+                const inicioCorIndex = parte.indexOf('bg-[');
+                if (inicioCorIndex === -1) continue;
+                
+                // Extrair a cor (começa após 'bg-[' e termina em ']')
+                const inicioCol = inicioCorIndex + 4; // pular 'bg-['
+                const fimCol = parte.indexOf(']', inicioCol);
+                if (fimCol === -1) continue;
+                
+                const cor = parte.substring(inicioCol, fimCol);
+                
+                // Encontrar o valor da carta (conteúdo entre > e <)
+                const inicioValorIndex = parte.indexOf('>');
+                if (inicioValorIndex === -1) continue;
+                
+                const fimValorIndex = parte.indexOf('<', inicioValorIndex);
+                if (fimValorIndex === -1) continue;
+                
+                const valor = parte.substring(inicioValorIndex + 1, fimValorIndex).trim();
+                
+                // Mapear cor para naipe
+                const naipe = MAPA_CORES_NAIPES[cor];
+                if (!naipe) {
+                    console.warn(`Cor desconhecida: ${cor}`);
+                    continue;
+                }
+                
+                resultado.push(`${valor}#${naipe}`);
+            }
+            
+            // Verificar se encontramos exatamente 2 cartas
+            if (resultado.length !== 2) {
+                console.warn(`Esperado 2 cartas, encontrado ${resultado.length}`);
+                return null;
+            }
+            
+            return resultado;
+            
+        } catch (error) {
+            console.error('Erro ao processar container de cartas:', error);
+            return null;
+        }
+    }
 
+    /**
+     * Salva os dados em um arquivo de texto formatado e força o download
+     * @param {Array} dados - Array retornado pela função extrairDadosMaos
+     * @param {string} nomeArquivo - Nome do arquivo (opcional)
+     */
+    function salvarComoTexto(dados, nomeArquivo = null) {
+        try {
+            // Validar dados de entrada
+            if (!dados || !Array.isArray(dados) || dados.length === 0) {
+                console.warn('⚠️ Nenhum dado válido para salvar');
+                alert('Nenhum dado encontrado para salvar!');
+                return false;
+            }
+            // Gerar nome do arquivo se não fornecido
+            if (!nomeArquivo) {
+                const agora = new Date();
+                const timestamp = agora.toISOString()
+                    .replace(/[:.]/g, '-')
+                    .replace('T', '_')
+                    .substring(0, 19); // Remove milissegundos e timezone
+                nomeArquivo = `maos-poker-${timestamp}.txt`;
+            }
+            // Garantir extensão .txt
+            if (!nomeArquivo.endsWith('.txt')) {
+                nomeArquivo += '.txt';
+            }
+            // Função para obter timestamp completo legível
+            const obterTimestampLegivel = () => {
+                const agora = new Date();
+                return agora.toLocaleString('pt-BR', {
+                    timeZone: 'America/Sao_Paulo',
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+            };
+            // Criar conteúdo formatado
+            const linhas = [];
+            
+            // Cabeçalho do arquivo
+            linhas.push('='.repeat(60));
+            linhas.push('           EXTRAÇÃO DE MÃOS DE POKER');
+            linhas.push('='.repeat(60));
+            linhas.push('');
+            linhas.push(`Data da extração: ${obterTimestampLegivel()}`);
+            linhas.push(`Total de mãos extraídas: ${dados.length}`);
+            linhas.push(`Arquivo gerado: ${nomeArquivo}`);
+            linhas.push('');
+            linhas.push('-'.repeat(60));
+            linhas.push('');
+            // Processar cada mão
+            dados.forEach((item, index) => {
+                try {
+                    const cartas = item;
+                    
+                    linhas.push(`MÃO ${index + 1}:`);
+                    
+                    if (cartas && cartas.length === 2) {
+                        linhas.push(`├─ Primeira carta: ${formatarCartaCompleta(cartas[0])}`);
+                        linhas.push(`└─ Segunda carta: ${formatarCartaCompleta(cartas[1])}`);
+                    } else {
+                        linhas.push(`└─ ❌ Erro na extração das cartas`);
+                    }
+                    
+                    linhas.push(''); // Linha em branco entre mãos
+                    
+                } catch (error) {
+                    linhas.push(`MÃO ${index + 1}: ❌ ERRO - ${error.message}`);
+                    linhas.push('');
+                }
+            });
+            // Rodapé
+            linhas.push('-'.repeat(60));
+            linhas.push('');
+            linhas.push('Legenda dos naipes:');
+            linhas.push('  • Espadas (♠) - Cor cinza (#434343)');
+            linhas.push('  • Copas (♥) - Cor vermelha (#D4131A)');
+            linhas.push('  • Ouros (♦) - Cor azul (#2371C8)');
+            linhas.push('  • Paus (♣) - Cor verde (#0F712A)');
+            linhas.push('');
+            linhas.push('='.repeat(60));
+            linhas.push(`Fim do arquivo - ${dados.length} mãos processadas`);
+            linhas.push('='.repeat(60));
+            // Juntar todas as linhas
+            const conteudoTexto = linhas.join('\n');
+            // Criar blob com BOM para UTF-8 (melhora compatibilidade)
+            const BOM = '\uFEFF'; // Byte Order Mark para UTF-8
+            const blob = new Blob([BOM + conteudoTexto], { 
+                type: 'text/plain;charset=utf-8;' 
+            });
+            // Criar URL para o blob
+            const url = URL.createObjectURL(blob);
+            
+            // Criar elemento de link temporário
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = nomeArquivo;
+            link.style.display = 'none'; // Garantir que não apareça na tela
+            
+            // Adicionar ao DOM temporariamente
+            document.body.appendChild(link);
+            
+            // Simular clique para iniciar download
+            link.click();
+            
+            // Limpar: remover do DOM e revogar URL
+            setTimeout(() => {
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }, 100);
+            
+            // Log de sucesso
+            console.log(`✅ Arquivo de texto salvo com sucesso: ${nomeArquivo}`);
+            console.log(`📊 ${dados.length} mãos exportadas`);
+            
+            // Mostrar mensagem de sucesso para o usuário
+            setTimeout(() => {
+                alert(`✅ Download iniciado!\n\nArquivo: ${nomeArquivo}\nMãos exportadas: ${dados.length}`);
+            }, 200);
+            
+            return true;
+            
+        } catch (error) {
+            console.error('❌ Erro ao salvar arquivo de texto:', error);
+            alert(`❌ Erro ao salvar arquivo: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Converte string de carta do formato "valor#naipe" para formato legível
+     * @param {string} cartaString - String no formato "J#Espadas"
+     * @returns {string} String formatada como "J de Espadas ♠"
+     */
+    function formatarCarta(cartaString) {
+        try {
+            // Validar entrada
+            if (!cartaString || typeof cartaString !== 'string') {
+                return 'Carta inválida';
+            }
+
+            // Separar valor e naipe
+            const partes = cartaString.split('#');
+            if (partes.length !== 2) {
+                return 'Formato inválido';
+            }
+
+            const [valor, naipe] = partes;
+
+            // Mapeamento de naipes para símbolos
+            const SIMBOLOS_NAIPES = {
+                'Espadas': '♠',
+                'Copas': '♥',
+                'Ouros': '♦',
+                'Paus': '♣'
+            };
+
+            // Mapeamento de valores especiais para nomes completos
+            const VALORES_ESPECIAIS = {
+                'A': 'Ás',
+                'K': 'Rei',
+                'Q': 'Dama',
+                'J': 'Valete',
+                'T': '10'
+            };
+
+            // Obter símbolo do naipe
+            const simbolo = SIMBOLOS_NAIPES[naipe];
+            if (!simbolo) {
+                return `${valor} de ${naipe} (naipe desconhecido)`;
+            }
+
+            // Obter nome do valor (se for especial) ou manter o número
+            const valorFormatado = VALORES_ESPECIAIS[valor] || valor;
+
+            // Retornar string formatada
+            return `${valorFormatado} de ${naipe} ${simbolo}`;
+
+        } catch (error) {
+            console.error('Erro ao formatar carta:', error);
+            return 'Erro na formatação';
+        }
+    }
+
+    /**
+     * Formata múltiplas cartas de uma vez
+     * @param {Array} cartas - Array de strings no formato ["J#Espadas", "3#Ouros"]
+     * @returns {Array} Array de strings formatadas
+     */
+    function formatarCartas(cartas) {
+        if (!Array.isArray(cartas)) {
+            return [];
+        }
+
+        return cartas.map(carta => formatarCarta(carta));
+    }
+
+    /**
+     * Formata uma mão completa (duas cartas) em uma string única
+     * @param {Array} cartas - Array com duas cartas ["J#Espadas", "3#Ouros"]
+     * @returns {string} String formatada da mão completa
+     */
+    function formatarMao(cartas) {
+        if (!Array.isArray(cartas) || cartas.length !== 2) {
+            return 'Mão inválida';
+        }
+
+        const carta1 = formatarCarta(cartas[0]);
+        const carta2 = formatarCarta(cartas[1]);
+
+        return `${carta1} | ${carta2}`;
+    }
+
+    /**
+     * Versão alternativa com formato mais compacto
+     * @param {string} cartaString - String no formato "J#Espadas"
+     * @returns {string} String formatada de forma compacta
+     */
+    function formatarCartaCompacta(cartaString) {
+        try {
+            if (!cartaString || typeof cartaString !== 'string') {
+                return 'Inválida';
+            }
+
+            const [valor, naipe] = cartaString.split('#');
+            
+            const SIMBOLOS_NAIPES = {
+                'Espadas': '♠',
+                'Copas': '♥',
+                'Ouros': '♦',
+                'Paus': '♣'
+            };
+
+            const VALORES_COMPACTOS = {
+                'A': 'A',
+                'K': 'K',
+                'Q': 'Q', 
+                'J': 'J',
+                'T': '10'
+            };
+
+            const simbolo = SIMBOLOS_NAIPES[naipe] || '?';
+            const valorComp = VALORES_COMPACTOS[valor] || valor;
+
+            return `${valorComp}${simbolo}`;
+
+        } catch (error) {
+            return 'Erro';
+        }
+    }
+
+    /**
+     * Versão com descrição completa em português
+     * @param {string} cartaString - String no formato "J#Espadas"
+     * @returns {string} String com descrição completa
+     */
+    function formatarCartaCompleta(cartaString) {
+        try {
+            if (!cartaString || typeof cartaString !== 'string') {
+                return 'Carta inválida';
+            }
+
+            const [valor, naipe] = cartaString.split('#');
+            
+            const SIMBOLOS_NAIPES = {
+                'Espadas': '♠',
+                'Copas': '♥',
+                'Ouros': '♦',
+                'Paus': '♣'
+            };
+
+            const DESCRICOES_COMPLETAS = {
+                'A': 'Ás',
+                'K': 'Rei',
+                'Q': 'Dama',
+                'J': 'Valete',
+                'T': 'Dez',
+                '2': 'Dois',
+                '3': 'Três',
+                '4': 'Quatro',
+                '5': 'Cinco',
+                '6': 'Seis',
+                '7': 'Sete',
+                '8': 'Oito',
+                '9': 'Nove'
+            };
+
+            const simbolo = SIMBOLOS_NAIPES[naipe];
+            const descricao = DESCRICOES_COMPLETAS[valor] || valor;
+            
+            if (!simbolo) {
+                return `${descricao} de ${naipe}`;
+            }
+
+            return `${descricao} de ${naipe} ${simbolo}`;
+
+        } catch (error) {
+            return 'Erro na formatação';
+        }
+    }
+
+    /**
+     * Função utilitária para diferentes estilos de formatação
+     * @param {string} cartaString - String no formato "J#Espadas"
+     * @param {string} estilo - 'simples', 'compacta', 'completa'
+     * @returns {string} String formatada conforme o estilo
+     */
+    function formatarCartaEstilo(cartaString, estilo = 'simples') {
+        switch (estilo.toLowerCase()) {
+            case 'compacta':
+                return formatarCartaCompacta(cartaString);
+            case 'completa':
+                return formatarCartaCompleta(cartaString);
+            case 'simples':
+            default:
+                return formatarCarta(cartaString);
+        }
+    }
     /**
      * Classe principal para gerenciar o botão do CheckReplay
      */
@@ -194,6 +583,8 @@
             try {
                 const dados = this.extrairDadosMaos();
                 console.log('📊 Dados extraídos:', dados);
+
+                salvarComoTexto(dados, `mão-${new Date().toISOString()}.txt`)
                 
                 // Aqui você pode processar os dados como necessário
                 this.processarDadosExtraidos(dados);
@@ -220,8 +611,10 @@
                 throw new Error('Elemento hands-list não encontrado');
             }
 
-            return this.extrairContainersCartas(handsListDiv);
+            return this.extrairContainersCartas(handsListDiv).map(extrairCartasDoContainer);
         }
+
+        
 
         /**
          * Localiza o elemento principal com a lista de mãos
@@ -403,6 +796,7 @@
             this.removerBotaoExistente();
         }
     }
+
 
     /**
      * Inicialização do sistema
