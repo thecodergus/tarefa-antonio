@@ -3,7 +3,7 @@
 // @namespace    http://tampermonkey.net/
 // @version      3.0
 // @description  Botão persistente para extração de mãos no CheckReplay
-// @author       Você
+// @author       Gustavo Michels de Camargo
 // @match        https://*.checkreplay.com/*
 // @grant        none
 // ==/UserScript==
